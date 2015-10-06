@@ -1,0 +1,92 @@
+plugins {
+    id "de.gesellix.docker" version "2015-07-05T16-55-10"
+}
+apply plugin: 'java'
+
+version = '1.0.0'
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    compile ('edu.internet2.middleware.grouper:grouper:2.2.2') {
+      transitive = false
+    }
+    compile 'edu.internet2.middleware.grouper:subject:2.2.2'    
+    compile 'org.slf4j:slf4j-api:1.6.2'
+    //Needed for hooks to compile
+    compile 'org.hibernate:hibernate-core:3.6.0.Final'
+}
+
+docker {
+    dockerHost = System.env['DOCKER_HOST']?.replace("tcp", "http");
+}
+
+import de.gesellix.gradle.docker.tasks.*
+
+task copyDocker(type: Copy) {
+    from 'src/test/docker/'
+    into 'build/docker-grouper/'
+    include 'Dockerfile', 'provisioningTargetAttributes.gsh'
+}
+
+task copyGrouperConfigToDocker(type: Copy) {
+    dependsOn copyDocker
+
+    from 'src/test/docker/'
+    into 'build/docker-grouper/classes/'
+    include '*.properties'
+}
+
+task copyLibToDocker(type: Copy) {
+    dependsOn jar
+
+    from 'build/libs/'
+    into 'build/docker-grouper/libs/'
+}
+
+task buildImage(type: DockerBuildTask) {
+    dependsOn copyGrouperConfigToDocker, copyLibToDocker, copyDocker
+
+    imageName = "test/grouper-dev"
+    buildContextDirectory = file('build/docker-grouper/')
+
+    doFirst {
+        logger.lifecycle("Building the initial Grouper image may take a long time. Have plenty of bandwidth.")
+    }
+}
+
+task runContainer(type: DockerRunTask) {
+    dependsOn buildImage
+
+    imageName = "test/grouper-dev"
+  	containerName = "grouper-dev"
+  	containerConfiguration = [
+      	"ExposedPorts": ["8080/tcp": [:]],
+      	"HostConfig"  : [
+           "PortBindings": [
+         		  "8080/tcp": [["HostPort": "8080"]],
+              "5005/tcp": [["HostPort": "5005"]]
+     		    ]
+        ]
+  	]
+}
+
+task stopContainer(type: DockerStopTask) {
+  containerId = "grouper-dev"
+}
+
+task removeContainer(type: DockerRmTask) {
+  dependsOn stopContainer
+
+  containerId = "grouper-dev"
+}
+
+task resetContainer() {
+    dependsOn removeContainer
+}
+
+clean {
+    dependsOn resetContainer
+}
