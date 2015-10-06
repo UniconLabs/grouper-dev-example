@@ -24,7 +24,6 @@ public class SelfOptOutPrivilegeRevocationVeto extends MembershipHooks {
     /** OptOut Required Attribute DefName, if found enforce this hook */
     public static final String OPTOUT_REQUIRED_ATTRIBUTE_DEF_NAME = GrouperConfig.retrieveConfig().propertyValueStringRequired("nd.optOutRequired.attributeDefName");
 
-
     @Override
     public void membershipPreRemoveMember(final HooksContext hooksContext, final HooksMembershipChangeBean preDeleteMemberBean) {
         
